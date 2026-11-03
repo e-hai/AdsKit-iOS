@@ -22,7 +22,7 @@ public struct SampleConfig {
     public struct AdMobUnit {
         public static let banner = "ca-app-pub-3940256099942544/2934735716"
         public static let rewarded = "ca-app-pub-3940256099942544/1712485313"
-        public static let splash = "ca-app-pub-3940256099942544/5662855259"
+        public static let splash = "ca-app-pub-3940256099942544/5575463023"
         public static let interstitial = "ca-app-pub-3940256099942544/4411468910"
         public static let native = "ca-app-pub-3940256099942544/3986624511"
         public static let mrec = "ca-app-pub-3940256099942544/2934735716"

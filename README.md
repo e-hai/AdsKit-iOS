@@ -101,7 +101,7 @@ UMP.start(from: self) { canRequestAds in
 ```swift
 let request = AdsRequest(
     triggerId: "home_splash",
-    adUnitId: "ca-app-pub-3940256099942544/5662855259",
+    adUnitId: "ca-app-pub-3940256099942544/5575463023",
     adType: .splash,
     providerType: .admob
 )
