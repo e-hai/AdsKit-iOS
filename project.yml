@@ -1,0 +1,33 @@
+name: AdsKitDemo
+options:
+  bundleIdPrefix: com.adskit
+  deploymentTarget:
+    iOS: "15.0"
+packages:
+  AdsKit:
+    path: .
+targets:
+  AdsKitDemo:
+    type: application
+    platform: iOS
+    deploymentTarget: "15.0"
+    sources:
+      - path: sample
+    dependencies:
+      - package: AdsKit
+        product: AdsKit
+    settings:
+      base:
+        INFOPLIST_FILE: sample/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.adskit.demo
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ENABLE_PREVIEWS: YES
+        SWIFT_VERSION: "5.0"
+        OTHER_LDFLAGS: ["-ObjC"]
+schemes:
+  AdsKitDemo:
+    build:
+      targets:
+        AdsKitDemo: all
+    run:
+      config: Debug

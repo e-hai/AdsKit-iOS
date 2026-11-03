@@ -128,6 +128,18 @@ AdsManager.loadAd(request: request, adListener: AdCallback(
 
 ---
 
+## Running the Demo App
+
+To run the interactive SwiftUI demo on the iOS Simulator:
+1. Open `AdsKitDemo.xcodeproj` in Xcode:
+   ```bash
+   open AdsKitDemo.xcodeproj
+   ```
+2. In the top toolbar scheme selector, choose **AdsKitDemo** and your target iOS Simulator (e.g. iPhone 16 / iPhone 17 Pro).
+3. Press **Cmd + R** (Product > Run) to compile, install, and launch the Demo app.
+
+---
+
 ## Running Tests
 
 ```bash
