@@ -1,7 +1,7 @@
 import Foundation
 
 @MainActor
-public protocol AdsProviderListener: AnyObject {
+public protocol AdsProviderListener: AnyObject, Sendable {
     func onAdStartedToLoad()
     func onAdLoaded(ad: Any)
     func onAdFailedToLoad(error: String, errorCode: String?)

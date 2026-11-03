@@ -23,7 +23,7 @@ public final class ApplovinProviderAdapter: NSObject, AdsProviderAdapter {
     ) {
         AdsLogger.d(TAG, "initialize start key=\(config.apiKey)")
         #if canImport(AppLovinSDK)
-        let initConfig = ALSdkInitializationConfiguration.builder(withSdkKey: config.apiKey, context: nil).build()
+        let initConfig = ALSdkInitializationConfiguration.builder(withSdkKey: config.apiKey).build()
         ALSdk.shared().initialize(with: initConfig) { sdkConfig in
             Task { @MainActor in
                 AdsLogger.d(TAG, "initialize complete success=true countryCode=\(sdkConfig.countryCode)")
@@ -201,7 +201,7 @@ private struct AssociatedKeys {
 }
 
 #if canImport(AppLovinSDK) && canImport(UIKit)
-private final class ApplovinBannerDelegate: NSObject, MAAdViewAdListener, MAAdRevenueDelegate {
+private final class ApplovinBannerDelegate: NSObject, MAAdViewAdDelegate, MAAdRevenueDelegate {
     private let request: AdsRequest
     private weak var listener: AdsProviderListener?
 
@@ -211,27 +211,39 @@ private final class ApplovinBannerDelegate: NSObject, MAAdViewAdListener, MAAdRe
     }
 
     func didLoad(_ ad: MAAd) {
-        listener?.onAdLoaded(ad: ad)
+        Task { @MainActor in
+            listener?.onAdLoaded(ad: ad)
+        }
     }
 
     func didFailToLoadAd(forAdUnitIdentifier adUnitIdentifier: String, withError error: MAError) {
-        listener?.onAdFailedToLoad(error: error.message, errorCode: "\(error.code.rawValue)")
+        Task { @MainActor in
+            listener?.onAdFailedToLoad(error: error.message, errorCode: "\(error.code.rawValue)")
+        }
     }
 
     func didDisplay(_ ad: MAAd) {
-        listener?.onAdShown()
+        Task { @MainActor in
+            listener?.onAdShown()
+        }
     }
 
     func didHide(_ ad: MAAd) {
-        listener?.onAdClosed()
+        Task { @MainActor in
+            listener?.onAdClosed()
+        }
     }
 
     func didClick(_ ad: MAAd) {
-        listener?.onAdClicked()
+        Task { @MainActor in
+            listener?.onAdClicked()
+        }
     }
 
     func didFail(toDisplay ad: MAAd, withError error: MAError) {
-        listener?.onAdFailedToShow(ad: ad, error: error.message, errorCode: "DISPLAY_\(error.code.rawValue)")
+        Task { @MainActor in
+            listener?.onAdFailedToShow(ad: ad, error: error.message, errorCode: "DISPLAY_\(error.code.rawValue)")
+        }
     }
 
     func didExpand(_ ad: MAAd) {}
@@ -240,7 +252,9 @@ private final class ApplovinBannerDelegate: NSObject, MAAdViewAdListener, MAAdRe
     func didPayRevenue(for ad: MAAd) {
         let micros = Int64(ad.revenue * 1_000_000)
         let paid = AdsPaidEvent(valueMicros: micros, currencyCode: "USD", precision: 0)
-        listener?.onAdPaidEvent(paid: paid)
+        Task { @MainActor in
+            listener?.onAdPaidEvent(paid: paid)
+        }
     }
 }
 
@@ -254,33 +268,47 @@ private final class ApplovinFullscreenDelegate: NSObject, MAAdDelegate, MAAdReve
     }
 
     func didLoad(_ ad: MAAd) {
-        listener?.onAdLoaded(ad: ad)
+        Task { @MainActor in
+            listener?.onAdLoaded(ad: ad)
+        }
     }
 
     func didFailToLoadAd(forAdUnitIdentifier adUnitIdentifier: String, withError error: MAError) {
-        listener?.onAdFailedToLoad(error: error.message, errorCode: "\(error.code.rawValue)")
+        Task { @MainActor in
+            listener?.onAdFailedToLoad(error: error.message, errorCode: "\(error.code.rawValue)")
+        }
     }
 
     func didDisplay(_ ad: MAAd) {
-        listener?.onAdShown()
+        Task { @MainActor in
+            listener?.onAdShown()
+        }
     }
 
     func didHide(_ ad: MAAd) {
-        listener?.onAdClosed()
+        Task { @MainActor in
+            listener?.onAdClosed()
+        }
     }
 
     func didClick(_ ad: MAAd) {
-        listener?.onAdClicked()
+        Task { @MainActor in
+            listener?.onAdClicked()
+        }
     }
 
     func didFail(toDisplay ad: MAAd, withError error: MAError) {
-        listener?.onAdFailedToShow(ad: ad, error: error.message, errorCode: "DISPLAY_\(error.code.rawValue)")
+        Task { @MainActor in
+            listener?.onAdFailedToShow(ad: ad, error: error.message, errorCode: "DISPLAY_\(error.code.rawValue)")
+        }
     }
 
     func didPayRevenue(for ad: MAAd) {
         let micros = Int64(ad.revenue * 1_000_000)
         let paid = AdsPaidEvent(valueMicros: micros, currencyCode: "USD", precision: 0)
-        listener?.onAdPaidEvent(paid: paid)
+        Task { @MainActor in
+            listener?.onAdPaidEvent(paid: paid)
+        }
     }
 }
 
@@ -294,41 +322,57 @@ private final class ApplovinRewardedDelegate: NSObject, MARewardedAdDelegate, MA
     }
 
     func didLoad(_ ad: MAAd) {
-        listener?.onAdLoaded(ad: ad)
+        Task { @MainActor in
+            listener?.onAdLoaded(ad: ad)
+        }
     }
 
     func didFailToLoadAd(forAdUnitIdentifier adUnitIdentifier: String, withError error: MAError) {
-        listener?.onAdFailedToLoad(error: error.message, errorCode: "\(error.code.rawValue)")
+        Task { @MainActor in
+            listener?.onAdFailedToLoad(error: error.message, errorCode: "\(error.code.rawValue)")
+        }
     }
 
     func didDisplay(_ ad: MAAd) {
-        listener?.onAdShown()
+        Task { @MainActor in
+            listener?.onAdShown()
+        }
     }
 
     func didHide(_ ad: MAAd) {
-        listener?.onAdClosed()
+        Task { @MainActor in
+            listener?.onAdClosed()
+        }
     }
 
     func didClick(_ ad: MAAd) {
-        listener?.onAdClicked()
+        Task { @MainActor in
+            listener?.onAdClicked()
+        }
     }
 
     func didFail(toDisplay ad: MAAd, withError error: MAError) {
-        listener?.onAdFailedToShow(ad: ad, error: error.message, errorCode: "DISPLAY_\(error.code.rawValue)")
+        Task { @MainActor in
+            listener?.onAdFailedToShow(ad: ad, error: error.message, errorCode: "DISPLAY_\(error.code.rawValue)")
+        }
     }
 
     func didRewardUser(for ad: MAAd, with reward: MAReward) {
-        listener?.onAdUserEarnedReward()
+        Task { @MainActor in
+            listener?.onAdUserEarnedReward()
+        }
     }
 
     func didPayRevenue(for ad: MAAd) {
         let micros = Int64(ad.revenue * 1_000_000)
         let paid = AdsPaidEvent(valueMicros: micros, currencyCode: "USD", precision: 0)
-        listener?.onAdPaidEvent(paid: paid)
+        Task { @MainActor in
+            listener?.onAdPaidEvent(paid: paid)
+        }
     }
 }
 
-private final class ApplovinNativeDelegate: NSObject, MANativeAdListener, MAAdRevenueDelegate {
+private final class ApplovinNativeDelegate: NSObject, MANativeAdDelegate, MAAdRevenueDelegate {
     private let request: AdsRequest
     private weak var listener: AdsProviderListener?
 
@@ -338,25 +382,33 @@ private final class ApplovinNativeDelegate: NSObject, MANativeAdListener, MAAdRe
     }
 
     func didLoadNativeAd(_ nativeAdView: MANativeAdView?, for ad: MAAd) {
-        if let view = nativeAdView {
-            listener?.onAdLoaded(ad: view)
-        } else {
-            listener?.onAdLoaded(ad: ad)
+        Task { @MainActor in
+            if let view = nativeAdView {
+                listener?.onAdLoaded(ad: view)
+            } else {
+                listener?.onAdLoaded(ad: ad)
+            }
         }
     }
 
     func didFailToLoadNativeAd(forAdUnitIdentifier adUnitIdentifier: String, withError error: MAError) {
-        listener?.onAdFailedToLoad(error: error.message, errorCode: "\(error.code.rawValue)")
+        Task { @MainActor in
+            listener?.onAdFailedToLoad(error: error.message, errorCode: "\(error.code.rawValue)")
+        }
     }
 
     func didClickNativeAd(_ ad: MAAd) {
-        listener?.onAdClicked()
+        Task { @MainActor in
+            listener?.onAdClicked()
+        }
     }
 
     func didPayRevenue(for ad: MAAd) {
         let micros = Int64(ad.revenue * 1_000_000)
         let paid = AdsPaidEvent(valueMicros: micros, currencyCode: "USD", precision: 0)
-        listener?.onAdPaidEvent(paid: paid)
+        Task { @MainActor in
+            listener?.onAdPaidEvent(paid: paid)
+        }
     }
 }
 #endif
