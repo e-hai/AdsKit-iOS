@@ -1,8 +1,8 @@
-# AdsKit (iOS)
+# AdsKit-iOS
 
 Unified Ad Mediation SDK for iOS (Swift) wrapping **Google Mobile Ads (AdMob)** and **AppLovin MAX** under a single `AdsManager` facade.
 
-Designed with exact architectural parity to the Android branch:
+Designed with exact architectural parity to the Android SDK:
 - **Single-Adapter Mode**: One active provider at a time; clean teardown and cache eviction on provider switch.
 - **MainActor Thread Guarantees**: Thread-safe API lifecycle running on the UI main actor.
 - **Preload & TTL Caching**: Fire-and-forget preloading indexed by `triggerId`, with automatic expiration and cleanup.
@@ -30,14 +30,13 @@ Designed with exact architectural parity to the Android branch:
 
 In Xcode: **File** > **Add Packages...** > Enter repository URL:
 ```
-https://github.com/e-hai/AdsKit.git
+https://github.com/e-hai/AdsKit-iOS.git
 ```
-Select branch `ios`.
 
 Or in `Package.swift`:
 ```swift
 dependencies: [
-    .package(url: "https://github.com/e-hai/AdsKit.git", branch: "ios")
+    .package(url: "https://github.com/e-hai/AdsKit-iOS.git", from: "1.0.0")
 ]
 ```
 
@@ -46,11 +45,11 @@ dependencies: [
 Add to your `Podfile`:
 ```ruby
 # Full bundle
-pod 'AdsKit', :git => 'https://github.com/e-hai/AdsKit.git', :branch => 'ios'
+pod 'AdsKit', :git => 'https://github.com/e-hai/AdsKit-iOS.git'
 
 # Or slim integration (AdMob only)
-pod 'AdsKit/Core', :git => 'https://github.com/e-hai/AdsKit.git', :branch => 'ios'
-pod 'AdsKit/Admob', :git => 'https://github.com/e-hai/AdsKit.git', :branch => 'ios'
+pod 'AdsKit/Core', :git => 'https://github.com/e-hai/AdsKit-iOS.git'
+pod 'AdsKit/Admob', :git => 'https://github.com/e-hai/AdsKit-iOS.git'
 ```
 
 ---

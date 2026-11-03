@@ -5,10 +5,10 @@ Pod::Spec.new do |s|
   s.description      = <<-DESC
 AdsKit provides a unified facade (AdsManager) wrapping AdMob and AppLovin SDKs with single-adapter mode, main-thread guarantees, and TTL-based preloading.
                        DESC
-  s.homepage         = 'https://github.com/e-hai/AdsKit'
+  s.homepage         = 'https://github.com/e-hai/AdsKit-iOS'
   s.license          = { :type => 'MIT', :file => 'LICENSE' }
   s.author           = { 'e-hai' => 'contact@example.com' }
-  s.source           = { :git => 'https://github.com/e-hai/AdsKit.git', :tag => s.version.to_s }
+  s.source           = { :git => 'https://github.com/e-hai/AdsKit-iOS.git', :tag => s.version.to_s }
   s.ios.deployment_target = '13.0'
   s.swift_version    = '5.9'
 
