@@ -1,6 +1,0 @@
-jdk:
-  - openjdk17
-# Default JitPack Android flow runs `assemble`, which also builds :sample and OOMs
-# under the mediation classpath. Publish library modules only.
-install:
-  - ./gradlew clean publishToMavenLocal -x test -x lint --stacktrace
