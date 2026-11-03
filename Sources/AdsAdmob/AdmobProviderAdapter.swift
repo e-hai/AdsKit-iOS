@@ -98,6 +98,20 @@ public final class AdmobProviderAdapter: NSObject, AdsProviderAdapter {
     #endif
 
     #if canImport(GoogleMobileAds) && canImport(UIKit)
+    private func getTopViewController() -> UIViewController? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        for scene in scenes {
+            for window in scene.windows where window.isKeyWindow {
+                var top = window.rootViewController
+                while let presented = top?.presentedViewController {
+                    top = presented
+                }
+                return top
+            }
+        }
+        return nil
+    }
+
     private func loadBanner(request: AdsRequest, gadRequest: Request, listener: AdsProviderListener, isMrec: Bool) {
         let adSize: AdSize
         if isMrec {
@@ -109,10 +123,19 @@ public final class AdmobProviderAdapter: NSObject, AdsProviderAdapter {
 
         let bannerView = BannerView(adSize: adSize)
         bannerView.adUnitID = request.adUnitId
+        bannerView.rootViewController = getTopViewController()
 
         let delegate = AdmobBannerDelegate(request: request, listener: listener)
         bannerView.delegate = delegate
         objc_setAssociatedObject(bannerView, &AssociatedKeys.delegateKey, delegate, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+
+        activeLoaders.append(bannerView)
+        delegate.onFinished = { [weak self, weak bannerView] in
+            Task { @MainActor in
+                guard let self = self, let bannerView = bannerView else { return }
+                self.activeLoaders.removeAll { ($0 as AnyObject) === (bannerView as AnyObject) }
+            }
+        }
 
         bannerView.paidEventHandler = { [weak listener] value in
             let micros = value.value.multiplying(byPowerOf10: 6).int64Value
@@ -213,7 +236,7 @@ public final class AdmobProviderAdapter: NSObject, AdsProviderAdapter {
         let delegate = AdmobNativeDelegate(request: request, listener: listener)
         let loader = AdLoader(
             adUnitID: request.adUnitId,
-            rootViewController: nil,
+            rootViewController: getTopViewController(),
             adTypes: [.native],
             options: nil
         )
@@ -338,6 +361,7 @@ private struct AssociatedKeys {
 private final class AdmobBannerDelegate: NSObject, BannerViewDelegate {
     private let request: AdsRequest
     private let listener: AdsProviderListener
+    var onFinished: (() -> Void)?
 
     init(request: AdsRequest, listener: AdsProviderListener) {
         self.request = request
@@ -348,6 +372,7 @@ private final class AdmobBannerDelegate: NSObject, BannerViewDelegate {
         Task { @MainActor in
             AdsLogger.d("AdsKit-Admob", "bannerViewDidReceiveAd")
             self.listener.onAdLoaded(ad: bannerView)
+            self.onFinished?()
         }
     }
 
@@ -355,6 +380,7 @@ private final class AdmobBannerDelegate: NSObject, BannerViewDelegate {
         Task { @MainActor in
             AdsLogger.e("AdsKit-Admob", "bannerView didFailToReceiveAdWithError: \(error.localizedDescription)")
             self.listener.onAdFailedToLoad(error: error.localizedDescription, errorCode: "\((error as NSError).code)")
+            self.onFinished?()
         }
     }
 

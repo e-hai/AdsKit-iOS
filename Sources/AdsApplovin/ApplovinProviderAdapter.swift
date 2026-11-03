@@ -61,6 +61,13 @@ public final class ApplovinProviderAdapter: NSObject, AdsProviderAdapter {
             adView.delegate = delegate
             adView.revenueDelegate = delegate
             objc_setAssociatedObject(adView, &AssociatedKeys.delegateKey, delegate, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            activeAds.append(adView)
+            delegate.onFinished = { [weak self, weak adView] in
+                Task { @MainActor in
+                    guard let self = self, let adView = adView else { return }
+                    self.activeAds.removeAll { ($0 as AnyObject) === (adView as AnyObject) }
+                }
+            }
             adView.loadAd()
 
         case .mrec:
@@ -69,6 +76,13 @@ public final class ApplovinProviderAdapter: NSObject, AdsProviderAdapter {
             adView.delegate = delegate
             adView.revenueDelegate = delegate
             objc_setAssociatedObject(adView, &AssociatedKeys.delegateKey, delegate, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            activeAds.append(adView)
+            delegate.onFinished = { [weak self, weak adView] in
+                Task { @MainActor in
+                    guard let self = self, let adView = adView else { return }
+                    self.activeAds.removeAll { ($0 as AnyObject) === (adView as AnyObject) }
+                }
+            }
             adView.loadAd()
 
         case .splash:
@@ -236,6 +250,7 @@ private struct AssociatedKeys {
 private final class ApplovinBannerDelegate: NSObject, MAAdViewAdDelegate, MAAdRevenueDelegate {
     private let request: AdsRequest
     private let listener: AdsProviderListener
+    var onFinished: (() -> Void)?
 
     init(request: AdsRequest, listener: AdsProviderListener) {
         self.request = request
@@ -245,12 +260,14 @@ private final class ApplovinBannerDelegate: NSObject, MAAdViewAdDelegate, MAAdRe
     func didLoad(_ ad: MAAd) {
         Task { @MainActor in
             self.listener.onAdLoaded(ad: ad)
+            self.onFinished?()
         }
     }
 
     func didFailToLoadAd(forAdUnitIdentifier adUnitIdentifier: String, withError error: MAError) {
         Task { @MainActor in
             self.listener.onAdFailedToLoad(error: error.message, errorCode: "\(error.code.rawValue)")
+            self.onFinished?()
         }
     }
 
