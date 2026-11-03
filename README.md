@@ -2,7 +2,7 @@
 
 Unified Ad Mediation SDK for iOS (Swift) wrapping **Google Mobile Ads (AdMob)** and **AppLovin MAX** under a single `AdsManager` facade.
 
-Designed with exact architectural parity to the Android SDK:
+### Core Features
 - **Single-Adapter Mode**: One active provider at a time; clean teardown and cache eviction on provider switch.
 - **MainActor Thread Guarantees**: Thread-safe API lifecycle running on the UI main actor.
 - **Preload & TTL Caching**: Fire-and-forget preloading indexed by `triggerId`, with automatic expiration and cleanup.

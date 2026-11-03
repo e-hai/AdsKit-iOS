@@ -4,7 +4,7 @@ This file is for AI agents (Codex, Copilot, etc.) to quickly understand the proj
 
 ## What This Repository Is
 
-The iOS implementation of `AdsKit` written in Swift. It mirrors the exact architecture of `AdsKit-Android`, providing a unified `AdsManager` facade wrapping Google Mobile Ads (AdMob) and AppLovin MAX under a single API.
+The iOS implementation of `AdsKit` written in Swift. It provides a unified `AdsManager` facade wrapping Google Mobile Ads (AdMob) and AppLovin MAX under a single API.
 
 **Key design decision**: single-adapter mode – `AdsManager` initializes exactly one `AdsProviderAdapter` at a time. Switching providers requires reinitializing via `AdsManager.initialize()`, which destroys the old adapter and evicts preloaded ads.
 
