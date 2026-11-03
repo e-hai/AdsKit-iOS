@@ -93,6 +93,10 @@ public final class AdmobProviderAdapter: NSObject, AdsProviderAdapter {
         #endif
     }
 
+    #if canImport(GoogleMobileAds)
+    private var activeLoaders: [Any] = []
+    #endif
+
     #if canImport(GoogleMobileAds) && canImport(UIKit)
     private func loadBanner(request: AdsRequest, gadRequest: Request, listener: AdsProviderListener, isMrec: Bool) {
         let adSize: AdSize
@@ -122,75 +126,84 @@ public final class AdmobProviderAdapter: NSObject, AdsProviderAdapter {
     }
 
     private func loadAppOpen(request: AdsRequest, gadRequest: Request, listener: AdsProviderListener) {
-        AppOpenAd.load(with: request.adUnitId, request: gadRequest) { [weak listener] ad, error in
+        AppOpenAd.load(with: request.adUnitId, request: gadRequest) { [listener] ad, error in
             Task { @MainActor in
-                guard let listener = listener else { return }
                 if let error = error {
+                    AdsLogger.e(TAG, "loadAppOpen error=\(error.localizedDescription) code=\(error._code)")
                     listener.onAdFailedToLoad(error: error.localizedDescription, errorCode: "\(error._code)")
                     return
                 }
                 guard let ad = ad else {
+                    AdsLogger.e(TAG, "loadAppOpen ad is nil")
                     listener.onAdFailedToLoad(error: "AdMob app open ad is nil", errorCode: "NIL_AD")
                     return
                 }
 
                 ad.paidEventHandler = { [weak listener] value in
+                    guard let listener = listener else { return }
                     let micros = value.value.multiplying(byPowerOf10: 6).int64Value
                     let paid = AdsPaidEvent(valueMicros: micros, currencyCode: value.currencyCode, precision: value.precision.rawValue)
                     Task { @MainActor in
-                        listener?.onAdPaidEvent(paid: paid)
+                        listener.onAdPaidEvent(paid: paid)
                     }
                 }
+                AdsLogger.d(TAG, "loadAppOpen loaded successfully")
                 listener.onAdLoaded(ad: ad)
             }
         }
     }
 
     private func loadRewarded(request: AdsRequest, gadRequest: Request, listener: AdsProviderListener) {
-        RewardedAd.load(with: request.adUnitId, request: gadRequest) { [weak listener] ad, error in
+        RewardedAd.load(with: request.adUnitId, request: gadRequest) { [listener] ad, error in
             Task { @MainActor in
-                guard let listener = listener else { return }
                 if let error = error {
+                    AdsLogger.e(TAG, "loadRewarded error=\(error.localizedDescription) code=\(error._code)")
                     listener.onAdFailedToLoad(error: error.localizedDescription, errorCode: "\(error._code)")
                     return
                 }
                 guard let ad = ad else {
+                    AdsLogger.e(TAG, "loadRewarded ad is nil")
                     listener.onAdFailedToLoad(error: "AdMob rewarded ad is nil", errorCode: "NIL_AD")
                     return
                 }
 
                 ad.paidEventHandler = { [weak listener] value in
+                    guard let listener = listener else { return }
                     let micros = value.value.multiplying(byPowerOf10: 6).int64Value
                     let paid = AdsPaidEvent(valueMicros: micros, currencyCode: value.currencyCode, precision: value.precision.rawValue)
                     Task { @MainActor in
-                        listener?.onAdPaidEvent(paid: paid)
+                        listener.onAdPaidEvent(paid: paid)
                     }
                 }
+                AdsLogger.d(TAG, "loadRewarded loaded successfully")
                 listener.onAdLoaded(ad: ad)
             }
         }
     }
 
     private func loadInterstitial(request: AdsRequest, gadRequest: Request, listener: AdsProviderListener) {
-        InterstitialAd.load(with: request.adUnitId, request: gadRequest) { [weak listener] ad, error in
+        InterstitialAd.load(with: request.adUnitId, request: gadRequest) { [listener] ad, error in
             Task { @MainActor in
-                guard let listener = listener else { return }
                 if let error = error {
+                    AdsLogger.e(TAG, "loadInterstitial error=\(error.localizedDescription) code=\(error._code)")
                     listener.onAdFailedToLoad(error: error.localizedDescription, errorCode: "\(error._code)")
                     return
                 }
                 guard let ad = ad else {
+                    AdsLogger.e(TAG, "loadInterstitial ad is nil")
                     listener.onAdFailedToLoad(error: "AdMob interstitial ad is nil", errorCode: "NIL_AD")
                     return
                 }
 
                 ad.paidEventHandler = { [weak listener] value in
+                    guard let listener = listener else { return }
                     let micros = value.value.multiplying(byPowerOf10: 6).int64Value
                     let paid = AdsPaidEvent(valueMicros: micros, currencyCode: value.currencyCode, precision: value.precision.rawValue)
                     Task { @MainActor in
-                        listener?.onAdPaidEvent(paid: paid)
+                        listener.onAdPaidEvent(paid: paid)
                     }
                 }
+                AdsLogger.d(TAG, "loadInterstitial loaded successfully")
                 listener.onAdLoaded(ad: ad)
             }
         }
@@ -206,6 +219,13 @@ public final class AdmobProviderAdapter: NSObject, AdsProviderAdapter {
         )
         loader.delegate = delegate
         objc_setAssociatedObject(loader, &AssociatedKeys.delegateKey, delegate, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        activeLoaders.append(loader)
+        delegate.onFinished = { [weak self, weak loader] in
+            Task { @MainActor in
+                guard let self = self, let loader = loader else { return }
+                self.activeLoaders.removeAll { ($0 as AnyObject) === (loader as AnyObject) }
+            }
+        }
         loader.load(gadRequest)
     }
     #endif
@@ -317,7 +337,7 @@ private struct AssociatedKeys {
 #if canImport(GoogleMobileAds) && canImport(UIKit)
 private final class AdmobBannerDelegate: NSObject, BannerViewDelegate {
     private let request: AdsRequest
-    private weak var listener: AdsProviderListener?
+    private let listener: AdsProviderListener
 
     init(request: AdsRequest, listener: AdsProviderListener) {
         self.request = request
@@ -326,25 +346,27 @@ private final class AdmobBannerDelegate: NSObject, BannerViewDelegate {
 
     func bannerViewDidReceiveAd(_ bannerView: BannerView) {
         Task { @MainActor in
-            listener?.onAdLoaded(ad: bannerView)
+            AdsLogger.d("AdsKit-Admob", "bannerViewDidReceiveAd")
+            self.listener.onAdLoaded(ad: bannerView)
         }
     }
 
     func bannerView(_ bannerView: BannerView, didFailToReceiveAdWithError error: Error) {
         Task { @MainActor in
-            listener?.onAdFailedToLoad(error: error.localizedDescription, errorCode: "\((error as NSError).code)")
+            AdsLogger.e("AdsKit-Admob", "bannerView didFailToReceiveAdWithError: \(error.localizedDescription)")
+            self.listener.onAdFailedToLoad(error: error.localizedDescription, errorCode: "\((error as NSError).code)")
         }
     }
 
     func bannerViewDidRecordClick(_ bannerView: BannerView) {
         Task { @MainActor in
-            listener?.onAdClicked()
+            self.listener.onAdClicked()
         }
     }
 }
 
 private final class AdmobFullScreenDelegate: NSObject, FullScreenContentDelegate {
-    private weak var listener: AdsProviderListener?
+    private let listener: AdsProviderListener
 
     init(listener: AdsProviderListener) {
         self.listener = listener
@@ -352,32 +374,33 @@ private final class AdmobFullScreenDelegate: NSObject, FullScreenContentDelegate
 
     func adDidRecordImpression(_ ad: FullScreenPresentingAd) {
         Task { @MainActor in
-            listener?.onAdShown()
+            self.listener.onAdShown()
         }
     }
 
     func adDidRecordClick(_ ad: FullScreenPresentingAd) {
         Task { @MainActor in
-            listener?.onAdClicked()
+            self.listener.onAdClicked()
         }
     }
 
     func adDidDismissFullScreenContent(_ ad: FullScreenPresentingAd) {
         Task { @MainActor in
-            listener?.onAdClosed()
+            self.listener.onAdClosed()
         }
     }
 
     func ad(_ ad: FullScreenPresentingAd, didFailToPresentFullScreenContentWithError error: Error) {
         Task { @MainActor in
-            listener?.onAdFailedToShow(ad: ad, error: error.localizedDescription, errorCode: "\((error as NSError).code)")
+            self.listener.onAdFailedToShow(ad: ad, error: error.localizedDescription, errorCode: "\((error as NSError).code)")
         }
     }
 }
 
 private final class AdmobNativeDelegate: NSObject, NativeAdLoaderDelegate {
     private let request: AdsRequest
-    private weak var listener: AdsProviderListener?
+    private let listener: AdsProviderListener
+    var onFinished: (() -> Void)?
 
     init(request: AdsRequest, listener: AdsProviderListener) {
         self.request = request
@@ -385,21 +408,26 @@ private final class AdmobNativeDelegate: NSObject, NativeAdLoaderDelegate {
     }
 
     func adLoader(_ adLoader: AdLoader, didReceive nativeAd: NativeAd) {
-        nativeAd.paidEventHandler = { [weak listener] value in
+        nativeAd.paidEventHandler = { [weak listener = self.listener] value in
+            guard let listener = listener else { return }
             let micros = value.value.multiplying(byPowerOf10: 6).int64Value
             let paid = AdsPaidEvent(valueMicros: micros, currencyCode: value.currencyCode, precision: value.precision.rawValue)
             Task { @MainActor in
-                listener?.onAdPaidEvent(paid: paid)
+                listener.onAdPaidEvent(paid: paid)
             }
         }
         Task { @MainActor in
-            listener?.onAdLoaded(ad: nativeAd)
+            AdsLogger.d("AdsKit-Admob", "adLoader didReceive nativeAd")
+            self.listener.onAdLoaded(ad: nativeAd)
+            self.onFinished?()
         }
     }
 
     func adLoader(_ adLoader: AdLoader, didFailToReceiveAdWithError error: Error) {
         Task { @MainActor in
-            listener?.onAdFailedToLoad(error: error.localizedDescription, errorCode: "\((error as NSError).code)")
+            AdsLogger.e("AdsKit-Admob", "adLoader didFailToReceiveAdWithError: \(error.localizedDescription)")
+            self.listener.onAdFailedToLoad(error: error.localizedDescription, errorCode: "\((error as NSError).code)")
+            self.onFinished?()
         }
     }
 }

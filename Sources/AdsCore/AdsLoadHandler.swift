@@ -31,7 +31,7 @@ internal final class AdsLoadHandler {
     private final class InternalProviderListener: AdsProviderListener {
         private let request: AdsRequest
         private let providerAdapter: AdsProviderAdapter
-        private weak var listener: AdsListener?
+        private let listener: AdsListener
 
         init(request: AdsRequest, providerAdapter: AdsProviderAdapter, listener: AdsListener) {
             self.request = request
@@ -41,53 +41,53 @@ internal final class AdsLoadHandler {
 
         func onAdStartedToLoad() {
             AdsLogger.d(TAG, "onAdStartedToLoad id=\(request.triggerId) unit=\(request.adUnitId) type=\(request.adType.name) provider=\(request.providerType.name)")
-            listener?.onAdStartedToLoad()
+            listener.onAdStartedToLoad()
         }
 
         func onAdLoaded(ad: Any) {
             AdsLogger.d(TAG, "onAdLoaded id=\(request.triggerId) unit=\(request.adUnitId) type=\(request.adType.name) provider=\(request.providerType.name)")
             let entity = AdsEntity(providerAdapter: providerAdapter, request: request, listener: self, ad: ad)
-            listener?.onAdLoaded(entity)
+            listener.onAdLoaded(entity)
         }
 
         func onAdFailedToLoad(error: String, errorCode: String?) {
             AdsLogger.e(TAG, "onAdFailedToLoad id=\(request.triggerId) unit=\(request.adUnitId) type=\(request.adType.name) provider=\(request.providerType.name) error=\(error) errorCode=\(errorCode ?? "nil")")
-            listener?.onAdFailedToLoad(error: error, errorCode: errorCode)
+            listener.onAdFailedToLoad(error: error, errorCode: errorCode)
         }
 
         func onAdShown() {
             AdsLogger.d(TAG, "onAdShown id=\(request.triggerId) unit=\(request.adUnitId) type=\(request.adType.name) provider=\(request.providerType.name)")
-            listener?.onAdShown()
+            listener.onAdShown()
         }
 
         func onAdClicked() {
             AdsLogger.d(TAG, "onAdClicked id=\(request.triggerId) unit=\(request.adUnitId) type=\(request.adType.name) provider=\(request.providerType.name)")
-            listener?.onAdClicked()
+            listener.onAdClicked()
         }
 
         func onAdPaidEvent() {
             AdsLogger.d(TAG, "onAdPaidEvent id=\(request.triggerId) unit=\(request.adUnitId) type=\(request.adType.name) provider=\(request.providerType.name)")
-            listener?.onAdPaidEvent(AdsPaidEvent())
+            listener.onAdPaidEvent(AdsPaidEvent())
         }
 
         func onAdPaidEvent(paid: AdsPaidEvent) {
             AdsLogger.d(TAG, "onAdPaidEvent id=\(request.triggerId) unit=\(request.adUnitId) type=\(request.adType.name) provider=\(request.providerType.name) valueMicros=\(paid.valueMicros) currency=\(paid.currencyCode) precision=\(paid.precision)")
-            listener?.onAdPaidEvent(paid)
+            listener.onAdPaidEvent(paid)
         }
 
         func onAdClosed() {
             AdsLogger.d(TAG, "onAdClosed id=\(request.triggerId) unit=\(request.adUnitId) type=\(request.adType.name) provider=\(request.providerType.name)")
-            listener?.onAdClosed()
+            listener.onAdClosed()
         }
 
         func onAdUserEarnedReward() {
             AdsLogger.d(TAG, "onAdUserEarnedReward id=\(request.triggerId) unit=\(request.adUnitId) type=\(request.adType.name) provider=\(request.providerType.name)")
-            listener?.onAdUserEarnedReward()
+            listener.onAdUserEarnedReward()
         }
 
         func onAdFailedToShow(ad: Any, error: String, errorCode: String?) {
             AdsLogger.e(TAG, "onAdFailedToShow id=\(request.triggerId) unit=\(request.adUnitId) type=\(request.adType.name) provider=\(request.providerType.name) error=\(error) errorCode=\(errorCode ?? "nil")")
-            listener?.onAdFailedToShow(error: error, errorCode: errorCode)
+            listener.onAdFailedToShow(error: error, errorCode: errorCode)
         }
     }
 }

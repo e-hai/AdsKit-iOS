@@ -45,6 +45,10 @@ public final class ApplovinProviderAdapter: NSObject, AdsProviderAdapter {
         #endif
     }
 
+    #if canImport(AppLovinSDK)
+    private var activeAds: [Any] = []
+    #endif
+
     public func loadAd(request: AdsRequest, listener: AdsProviderListener) {
         AdsLogger.d(TAG, "loadAd id=\(request.triggerId) unit=\(request.adUnitId) type=\(request.adType.name)")
         listener.onAdStartedToLoad()
@@ -73,6 +77,13 @@ public final class ApplovinProviderAdapter: NSObject, AdsProviderAdapter {
             appOpen.delegate = delegate
             appOpen.revenueDelegate = delegate
             objc_setAssociatedObject(appOpen, &AssociatedKeys.delegateKey, delegate, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            activeAds.append(appOpen)
+            delegate.onFinished = { [weak self, weak appOpen] in
+                Task { @MainActor in
+                    guard let self = self, let appOpen = appOpen else { return }
+                    self.activeAds.removeAll { ($0 as AnyObject) === (appOpen as AnyObject) }
+                }
+            }
             appOpen.load()
 
         case .rewarded:
@@ -81,6 +92,13 @@ public final class ApplovinProviderAdapter: NSObject, AdsProviderAdapter {
             rewarded.delegate = delegate
             rewarded.revenueDelegate = delegate
             objc_setAssociatedObject(rewarded, &AssociatedKeys.delegateKey, delegate, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            activeAds.append(rewarded)
+            delegate.onFinished = { [weak self, weak rewarded] in
+                Task { @MainActor in
+                    guard let self = self, let rewarded = rewarded else { return }
+                    self.activeAds.removeAll { ($0 as AnyObject) === (rewarded as AnyObject) }
+                }
+            }
             rewarded.load()
 
         case .interstitial:
@@ -89,6 +107,13 @@ public final class ApplovinProviderAdapter: NSObject, AdsProviderAdapter {
             interstitial.delegate = delegate
             interstitial.revenueDelegate = delegate
             objc_setAssociatedObject(interstitial, &AssociatedKeys.delegateKey, delegate, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            activeAds.append(interstitial)
+            delegate.onFinished = { [weak self, weak interstitial] in
+                Task { @MainActor in
+                    guard let self = self, let interstitial = interstitial else { return }
+                    self.activeAds.removeAll { ($0 as AnyObject) === (interstitial as AnyObject) }
+                }
+            }
             interstitial.load()
 
         case .native:
@@ -97,6 +122,13 @@ public final class ApplovinProviderAdapter: NSObject, AdsProviderAdapter {
             nativeLoader.nativeAdDelegate = delegate
             nativeLoader.revenueDelegate = delegate
             objc_setAssociatedObject(nativeLoader, &AssociatedKeys.delegateKey, delegate, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+            activeAds.append(nativeLoader)
+            delegate.onFinished = { [weak self, weak nativeLoader] in
+                Task { @MainActor in
+                    guard let self = self, let nativeLoader = nativeLoader else { return }
+                    self.activeAds.removeAll { ($0 as AnyObject) === (nativeLoader as AnyObject) }
+                }
+            }
             nativeLoader.loadAd()
         }
         #else
@@ -203,7 +235,7 @@ private struct AssociatedKeys {
 #if canImport(AppLovinSDK) && canImport(UIKit)
 private final class ApplovinBannerDelegate: NSObject, MAAdViewAdDelegate, MAAdRevenueDelegate {
     private let request: AdsRequest
-    private weak var listener: AdsProviderListener?
+    private let listener: AdsProviderListener
 
     init(request: AdsRequest, listener: AdsProviderListener) {
         self.request = request
@@ -212,37 +244,37 @@ private final class ApplovinBannerDelegate: NSObject, MAAdViewAdDelegate, MAAdRe
 
     func didLoad(_ ad: MAAd) {
         Task { @MainActor in
-            listener?.onAdLoaded(ad: ad)
+            self.listener.onAdLoaded(ad: ad)
         }
     }
 
     func didFailToLoadAd(forAdUnitIdentifier adUnitIdentifier: String, withError error: MAError) {
         Task { @MainActor in
-            listener?.onAdFailedToLoad(error: error.message, errorCode: "\(error.code.rawValue)")
+            self.listener.onAdFailedToLoad(error: error.message, errorCode: "\(error.code.rawValue)")
         }
     }
 
     func didDisplay(_ ad: MAAd) {
         Task { @MainActor in
-            listener?.onAdShown()
+            self.listener.onAdShown()
         }
     }
 
     func didHide(_ ad: MAAd) {
         Task { @MainActor in
-            listener?.onAdClosed()
+            self.listener.onAdClosed()
         }
     }
 
     func didClick(_ ad: MAAd) {
         Task { @MainActor in
-            listener?.onAdClicked()
+            self.listener.onAdClicked()
         }
     }
 
     func didFail(toDisplay ad: MAAd, withError error: MAError) {
         Task { @MainActor in
-            listener?.onAdFailedToShow(ad: ad, error: error.message, errorCode: "DISPLAY_\(error.code.rawValue)")
+            self.listener.onAdFailedToShow(ad: ad, error: error.message, errorCode: "DISPLAY_\(error.code.rawValue)")
         }
     }
 
@@ -253,14 +285,15 @@ private final class ApplovinBannerDelegate: NSObject, MAAdViewAdDelegate, MAAdRe
         let micros = Int64(ad.revenue * 1_000_000)
         let paid = AdsPaidEvent(valueMicros: micros, currencyCode: "USD", precision: 0)
         Task { @MainActor in
-            listener?.onAdPaidEvent(paid: paid)
+            self.listener.onAdPaidEvent(paid: paid)
         }
     }
 }
 
 private final class ApplovinFullscreenDelegate: NSObject, MAAdDelegate, MAAdRevenueDelegate {
     private let request: AdsRequest
-    private weak var listener: AdsProviderListener?
+    private let listener: AdsProviderListener
+    var onFinished: (() -> Void)?
 
     init(request: AdsRequest, listener: AdsProviderListener) {
         self.request = request
@@ -269,37 +302,39 @@ private final class ApplovinFullscreenDelegate: NSObject, MAAdDelegate, MAAdReve
 
     func didLoad(_ ad: MAAd) {
         Task { @MainActor in
-            listener?.onAdLoaded(ad: ad)
+            self.listener.onAdLoaded(ad: ad)
+            self.onFinished?()
         }
     }
 
     func didFailToLoadAd(forAdUnitIdentifier adUnitIdentifier: String, withError error: MAError) {
         Task { @MainActor in
-            listener?.onAdFailedToLoad(error: error.message, errorCode: "\(error.code.rawValue)")
+            self.listener.onAdFailedToLoad(error: error.message, errorCode: "\(error.code.rawValue)")
+            self.onFinished?()
         }
     }
 
     func didDisplay(_ ad: MAAd) {
         Task { @MainActor in
-            listener?.onAdShown()
+            self.listener.onAdShown()
         }
     }
 
     func didHide(_ ad: MAAd) {
         Task { @MainActor in
-            listener?.onAdClosed()
+            self.listener.onAdClosed()
         }
     }
 
     func didClick(_ ad: MAAd) {
         Task { @MainActor in
-            listener?.onAdClicked()
+            self.listener.onAdClicked()
         }
     }
 
     func didFail(toDisplay ad: MAAd, withError error: MAError) {
         Task { @MainActor in
-            listener?.onAdFailedToShow(ad: ad, error: error.message, errorCode: "DISPLAY_\(error.code.rawValue)")
+            self.listener.onAdFailedToShow(ad: ad, error: error.message, errorCode: "DISPLAY_\(error.code.rawValue)")
         }
     }
 
@@ -307,14 +342,15 @@ private final class ApplovinFullscreenDelegate: NSObject, MAAdDelegate, MAAdReve
         let micros = Int64(ad.revenue * 1_000_000)
         let paid = AdsPaidEvent(valueMicros: micros, currencyCode: "USD", precision: 0)
         Task { @MainActor in
-            listener?.onAdPaidEvent(paid: paid)
+            self.listener.onAdPaidEvent(paid: paid)
         }
     }
 }
 
 private final class ApplovinRewardedDelegate: NSObject, MARewardedAdDelegate, MAAdRevenueDelegate {
     private let request: AdsRequest
-    private weak var listener: AdsProviderListener?
+    private let listener: AdsProviderListener
+    var onFinished: (() -> Void)?
 
     init(request: AdsRequest, listener: AdsProviderListener) {
         self.request = request
@@ -323,43 +359,45 @@ private final class ApplovinRewardedDelegate: NSObject, MARewardedAdDelegate, MA
 
     func didLoad(_ ad: MAAd) {
         Task { @MainActor in
-            listener?.onAdLoaded(ad: ad)
+            self.listener.onAdLoaded(ad: ad)
+            self.onFinished?()
         }
     }
 
     func didFailToLoadAd(forAdUnitIdentifier adUnitIdentifier: String, withError error: MAError) {
         Task { @MainActor in
-            listener?.onAdFailedToLoad(error: error.message, errorCode: "\(error.code.rawValue)")
+            self.listener.onAdFailedToLoad(error: error.message, errorCode: "\(error.code.rawValue)")
+            self.onFinished?()
         }
     }
 
     func didDisplay(_ ad: MAAd) {
         Task { @MainActor in
-            listener?.onAdShown()
+            self.listener.onAdShown()
         }
     }
 
     func didHide(_ ad: MAAd) {
         Task { @MainActor in
-            listener?.onAdClosed()
+            self.listener.onAdClosed()
         }
     }
 
     func didClick(_ ad: MAAd) {
         Task { @MainActor in
-            listener?.onAdClicked()
+            self.listener.onAdClicked()
         }
     }
 
     func didFail(toDisplay ad: MAAd, withError error: MAError) {
         Task { @MainActor in
-            listener?.onAdFailedToShow(ad: ad, error: error.message, errorCode: "DISPLAY_\(error.code.rawValue)")
+            self.listener.onAdFailedToShow(ad: ad, error: error.message, errorCode: "DISPLAY_\(error.code.rawValue)")
         }
     }
 
     func didRewardUser(for ad: MAAd, with reward: MAReward) {
         Task { @MainActor in
-            listener?.onAdUserEarnedReward()
+            self.listener.onAdUserEarnedReward()
         }
     }
 
@@ -367,14 +405,15 @@ private final class ApplovinRewardedDelegate: NSObject, MARewardedAdDelegate, MA
         let micros = Int64(ad.revenue * 1_000_000)
         let paid = AdsPaidEvent(valueMicros: micros, currencyCode: "USD", precision: 0)
         Task { @MainActor in
-            listener?.onAdPaidEvent(paid: paid)
+            self.listener.onAdPaidEvent(paid: paid)
         }
     }
 }
 
 private final class ApplovinNativeDelegate: NSObject, MANativeAdDelegate, MAAdRevenueDelegate {
     private let request: AdsRequest
-    private weak var listener: AdsProviderListener?
+    private let listener: AdsProviderListener
+    var onFinished: (() -> Void)?
 
     init(request: AdsRequest, listener: AdsProviderListener) {
         self.request = request
@@ -384,22 +423,24 @@ private final class ApplovinNativeDelegate: NSObject, MANativeAdDelegate, MAAdRe
     func didLoadNativeAd(_ nativeAdView: MANativeAdView?, for ad: MAAd) {
         Task { @MainActor in
             if let view = nativeAdView {
-                listener?.onAdLoaded(ad: view)
+                self.listener.onAdLoaded(ad: view)
             } else {
-                listener?.onAdLoaded(ad: ad)
+                self.listener.onAdLoaded(ad: ad)
             }
+            self.onFinished?()
         }
     }
 
     func didFailToLoadNativeAd(forAdUnitIdentifier adUnitIdentifier: String, withError error: MAError) {
         Task { @MainActor in
-            listener?.onAdFailedToLoad(error: error.message, errorCode: "\(error.code.rawValue)")
+            self.listener.onAdFailedToLoad(error: error.message, errorCode: "\(error.code.rawValue)")
+            self.onFinished?()
         }
     }
 
     func didClickNativeAd(_ ad: MAAd) {
         Task { @MainActor in
-            listener?.onAdClicked()
+            self.listener.onAdClicked()
         }
     }
 
@@ -407,7 +448,7 @@ private final class ApplovinNativeDelegate: NSObject, MANativeAdDelegate, MAAdRe
         let micros = Int64(ad.revenue * 1_000_000)
         let paid = AdsPaidEvent(valueMicros: micros, currencyCode: "USD", precision: 0)
         Task { @MainActor in
-            listener?.onAdPaidEvent(paid: paid)
+            self.listener.onAdPaidEvent(paid: paid)
         }
     }
 }
