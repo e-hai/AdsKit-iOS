@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = 'AdsKit'
-  s.version          = '1.0.0'
+  s.version          = '1.0.1'
   s.summary          = 'Unified Ad Mediation SDK for iOS (AdMob & AppLovin)'
   s.description      = <<-DESC
 AdsKit provides a unified facade (AdsManager) wrapping AdMob and AppLovin SDKs with single-adapter mode, main-thread guarantees, and TTL-based preloading.

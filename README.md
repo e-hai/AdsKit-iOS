@@ -117,7 +117,7 @@ https://github.com/e-hai/AdsKit-iOS.git
 或者在您的 `Package.swift` 中声明：
 ```swift
 dependencies: [
-    .package(url: "https://github.com/e-hai/AdsKit-iOS.git", from: "1.0.0")
+    .package(url: "https://github.com/e-hai/AdsKit-iOS.git", from: "1.0.1")
 ]
 ```
 
