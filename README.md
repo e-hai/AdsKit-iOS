@@ -117,7 +117,7 @@ https://github.com/e-hai/AdsKit-iOS.git
 或者在您的 `Package.swift` 中声明：
 ```swift
 dependencies: [
-    .package(url: "https://github.com/e-hai/AdsKit-iOS.git", from: "1.0.1")
+    .package(url: "https://github.com/e-hai/AdsKit-iOS.git", from: "1.0.2")
 ]
 ```
 
@@ -137,9 +137,9 @@ pod 'AdsKit/Admob', :git => 'https://github.com/e-hai/AdsKit-iOS.git'
 
 ## 快速使用
 
-### 1. 注册并初始化 SDK
+### 1. 注册适配器
 
-在应用启动入口（如 `@main App` 或 `AppDelegate`）注册适配器并初始化默认 Provider：
+在应用启动入口（如 `@main App` 或 `AppDelegate`）注册适配器：
 
 ```swift
 import SwiftUI
@@ -150,19 +150,6 @@ struct MyApp: App {
     init() {
         // 注册所有提供商适配器
         AdsKit.registerAllProviders()
-
-        // 可选：启用调试与详细日志
-        AdsLogger.isEnabled = true
-        AdsDebug.isEnabled = true
-
-        // 初始化默认 Provider
-        let config = AdsProviderConfig(
-            providerType: .admob,
-            apiKey: "ca-app-pub-3940256099942544~1458002511"
-        )
-        AdsManager.initialize(config: config) { success in
-            print("AdsKit 初始化状态: \(success)")
-        }
     }
 
     var body: some Scene {
@@ -173,20 +160,38 @@ struct MyApp: App {
 }
 ```
 
-### 2. 隐私同意流程（UMP）
+### 2. 收集 UMP 隐私授权并初始化 SDK（推荐合规顺序）
 
-在展示广告前，推荐先收集用户隐私授权：
+由于 SDK 集成了多个第三方中介适配器，为满足欧盟 GDPR 隐私合规要求（获取用户授权前不得触发三方 SDK 初始化），**请务必先执行 `UMP.start`，在回调 `canRequestAds == true` 后再调用 `AdsManager.initialize(...)`**：
 
 ```swift
 import AdsKit
 
 // 在主 UIViewController 或视图渲染完成后发起：
-UMP.start(from: self) { canRequestAds in
+UMP.start(from: self, debugEnabled: false) { canRequestAds in
     guard canRequestAds else {
         print("未获得广告请求授权")
         return
     }
-    // 授权成功，可安全加载或预加载广告
+
+    // 授权成功后再初始化默认 Provider（logEnabled 与 debugEnabled 默认均为 false）
+    let config = AdsProviderConfig(
+        providerType: .admob,
+        apiKey: "ca-app-pub-3940256099942544~1458002511"
+    )
+    #if DEBUG
+    let isDebug = true
+    #else
+    let isDebug = false
+    #endif
+    AdsManager.initialize(
+        config: config,
+        logEnabled: isDebug,
+        debugEnabled: false
+    ) { success in
+        print("AdsKit 初始化状态: \(success)")
+        // 初始化成功后可安全加载或预加载广告
+    }
 }
 ```
 
@@ -253,7 +258,7 @@ AdsManager.loadAd(request: request, adListener: AdCallback(
    - 将 Scheme 切换为 **`AdsKitDemo`**；
    - 目标设备选择任何 iOS 模拟器（如 `iPhone 16` 或 `iPhone 17 Pro`）。
 3. 按下快捷键 **`Cmd + R`**（Product > Run）编译并运行。
-4. Demo 包含完整的 Provider 切换、UMP 授权测试、6 种广告格式加载与展示、预加载消费验证及实时事件日志面板。
+4. Demo 按照“先 UMP 授权 → 后初始化 SDK → 加载与展示广告”的合规顺序编排，包含 Provider 切换、6 种广告格式验证、预加载消费及实时事件日志面板。
 
 ---
 
@@ -278,3 +283,31 @@ swift test --filter AdsCoreTests
    - 激励（Rewarded）：`ca-app-pub-3940256099942544/1712485313`
    - 原生（Native）：`ca-app-pub-3940256099942544/3986624511`
    - 矩形横幅（MREC）：`ca-app-pub-3940256099942544/2934735716`
+
+---
+
+## 日志与调试开关
+
+> [!IMPORTANT]
+> **`logEnabled`** 与 **`debugEnabled`** 默认值均为 **`false`**，分别通过 `AdsManager.initialize(...)` 或 `UMP.start(...)` 传入；`AdsLogger` 与 `AdsDebug` 为 SDK 内部 SPI 类型（`@_spi(AdsKitInternal)`），不对外暴露引用。
+
+| 参数 / 入口 | 默认值 | 作用与副作用 |
+|---|---|---|
+| `AdsManager.initialize(..., logEnabled:)` | `false` | **纯日志开关**：控制 SDK 内部是否输出 `[AdsKit-*]` 默认控制台日志，无业务副作用。 |
+| `AdsManager.initialize(..., logHandler:)` / `AdsManager.setLogHandler(_:)` | `nil` | **外部日志拦截器**：非空时接管 SDK 全部日志输出（不再打印默认 `print`），可转发至自研日志库或崩溃上报；传 `nil` 恢复默认行为。 |
+| `AdsManager.initialize(..., debugEnabled:)` | `false` | **广告 SDK 调试开关**：预留的调试模式标记（默认关闭）。 |
+| `UMP.start(..., debugEnabled:)` | `false` | **UMP 独立调试开关（局部变量，不关联 `AdsDebug`）**：开启后会模拟 EEA 地区并重置隐私同意状态。**仅限本地调试，严禁线上开启。** |
+| `UMP.start(..., umpTestDeviceIds:)` | `[]` | 仅用于真机调试 UMP 强制 EEA 地区弹窗时传入的哈希测试设备 ID 列表（仅 `UMP.start` 的 `debugEnabled: true` 时生效；AdMob 常规测试设备请在 AdMob 后台配置）。 |
+
+```swift
+// 可选：外部拦截 SDK 日志（例如转发至自定义日志库，无需依赖内部 AdsLogger）
+AdsManager.setLogHandler { level, tag, message, error in
+    // level: .debug / .warn / .error
+    MyLogger.log(level.rawValue, tag: tag, message: message, error: error)
+}
+```
+
+---
+
+- 后台配置与上线 SOP 见 **[`docs/MEDIATION_SOP.md`](docs/MEDIATION_SOP.md)**。
+- 更多架构与内存管理约定见 **`AGENTS.md`**。

@@ -1,5 +1,5 @@
 import Foundation
-import AdsCore
+@_spi(AdsKitInternal) import AdsCore
 
 #if canImport(UIKit)
 import UIKit

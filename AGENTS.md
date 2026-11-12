@@ -13,6 +13,7 @@ This document is specifically crafted for AI coding agents (Claude, GPT, Codex, 
 - **Provider Switching**: Calling `AdsManager.initialize(...)` with a different provider automatically tears down the active adapter (`destroy()`) and evicts all preloaded ads from cache.
 - **Provider Registration**: Providers register via `AdsProviderAdapterFactory.register(...)` (typically triggered via `AdsKit.registerAllProviders()`).
 - **MainActor Concurrency**: All public API methods, lifecycle handlers, and delegate dispatches strictly execute on the `@MainActor`.
+- **GDPR Startup Order**: Both documentation and `sample/` UI follow `UMP.start(...)` → `AdsManager.initialize(...)` → `loadAd(...)` so third-party mediation adapters are not initialized prior to user consent.
 - **Zero Cross-Platform Leaks**: This repository is completely self-contained and must not include any Android-specific dependencies, configurations, or references.
 
 ---
@@ -42,8 +43,8 @@ AdsKit-iOS/
 │   │   ├── AdsEntity.swift          # Loaded ad wrapper with show(from:in:) and destroy()
 │   │   ├── AdsListener.swift        # Callback protocol + AdCallback open base class
 │   │   ├── AdsPaidEvent.swift       # eCPM / revenue event data structure (valueMicros, currency, precision)
-│   │   ├── AdsLogger.swift          # Tagged structured logger with AdsKit-* prefix
-│   │   ├── AdsDebug.swift           # Test device IDs and debug flags
+│   │   ├── AdsLogger.swift          # Internal (@_spi(AdsKitInternal)) tagged logger
+│   │   ├── AdsDebug.swift           # Internal (@_spi(AdsKitInternal)) debug flag
 │   │   ├── AdsLoadHandler.swift     # Lifecycle manager for individual load operations
 │   │   ├── UMP/
 │   │   │   └── UMP.swift            # Google User Messaging Platform consent wrapper
@@ -146,7 +147,20 @@ func bannerViewDidReceiveAd(_ bannerView: BannerView) {
 
 ---
 
-## 6. Official Google AdMob iOS Test Ad Unit IDs
+## 6. Logging & Debug Switches
+
+`AdsLogger` and `AdsDebug` are marked `@_spi(AdsKitInternal)` and **are not exposed to external host apps**. Both default to **`false`** and are configured via `AdsManager.initialize(config:logEnabled:debugEnabled:onResult:)`. `UMP.start(...)` uses an independent local `debugEnabled` parameter and emits no internal SDK logs:
+
+| Parameter / API | Default | Scope & Side Effects |
+|---|---|---|
+| `AdsManager.initialize(..., logEnabled:)` | `false` | Sets internal `AdsLogger.isEnabled`. Controls `[AdsKit-*]` console logging only; no behavioral side effects. |
+| `AdsManager.initialize(..., logHandler:)` / `setLogHandler(_:)` | `nil` | External `AdsLogHandler` interceptor (`AdsLogLevel`, `tag`, `message`, `error`). When non-nil, intercepts all SDK logs and suppresses default `print` output. |
+| `AdsManager.initialize(..., debugEnabled:)` | `false` | Sets internal `AdsDebug.isEnabled`. Reserved SDK debug flag. |
+| `UMP.start(from:debugEnabled:umpTestDeviceIds:callBack:)` | `false`, `[]` | Independent local UMP debug parameters (not tied to `AdsDebug`). When `debugEnabled == true`, applies EEA debug geography and resets UMP consent. Recommended to run **before** `AdsManager.initialize(...)` for GDPR compliance. |
+
+---
+
+## 7. Official Google AdMob iOS Test Ad Unit IDs
 
 Always use the official demo IDs when authoring sample code or tests:
 
@@ -161,7 +175,7 @@ Always use the official demo IDs when authoring sample code or tests:
 
 ---
 
-## 7. Build, Test, and Run Commands
+## 8. Build, Test, and Run Commands
 
 ### A. Compile Swift Package (iOS Simulator Triple)
 ```bash
@@ -187,7 +201,7 @@ xcrun simctl launch booted com.adskit.demo
 
 ---
 
-## 8. Agent Checklist Before Committing Changes
+## 9. Agent Checklist Before Committing Changes
 
 1. **Build Verification**: Run `swift build --triple arm64-apple-ios17.0-simulator` and ensure zero errors and zero warnings.
 2. **Test Verification**: Run `swift test --filter AdsCoreTests` and verify all 12 unit tests pass.

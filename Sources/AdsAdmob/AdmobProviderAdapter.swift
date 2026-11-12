@@ -1,5 +1,5 @@
 import Foundation
-import AdsCore
+@_spi(AdsKitInternal) import AdsCore
 
 #if canImport(UIKit)
 import UIKit
@@ -23,11 +23,6 @@ public final class AdmobProviderAdapter: NSObject, AdsProviderAdapter {
     ) {
         AdsLogger.d(TAG, "initialize start")
         #if canImport(GoogleMobileAds)
-        if AdsDebug.isEnabled && !AdsDebug.admobTestDeviceIds.isEmpty {
-            MobileAds.shared.requestConfiguration.testDeviceIdentifiers = AdsDebug.admobTestDeviceIds
-            AdsLogger.d(TAG, "testDeviceIds=\(AdsDebug.admobTestDeviceIds)")
-        }
-
         MobileAds.shared.start { status in
             Task { @MainActor in
                 let adapterStatuses = status.adapterStatusesByClassName
@@ -50,10 +45,7 @@ public final class AdmobProviderAdapter: NSObject, AdsProviderAdapter {
             AdsLogger.e(TAG, "openDebug rejected error=viewController must be UIViewController")
             return
         }
-        let testDeviceIds = AdsDebug.admobTestDeviceIds.isEmpty
-            ? ["9204E5C14728DD6DD82CE0A440ED41F5"]
-            : AdsDebug.admobTestDeviceIds
-        MobileAds.shared.requestConfiguration.testDeviceIdentifiers = testDeviceIds
+        AdsLogger.d(TAG, "openDebug")
         MobileAds.shared.presentAdInspector(from: vc) { error in
             if let error = error {
                 AdsLogger.e(TAG, "openAdInspector closed error=\(error.localizedDescription)")

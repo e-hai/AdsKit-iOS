@@ -31,14 +31,40 @@ public struct ContentView: View {
                         Text("AdsKit Sample")
                             .font(.title2)
                             .fontWeight(.bold)
-                        Text("演示初始化、UMP、预加载、多种广告类型，以及 Provider 切换。")
+                        Text("演示 UMP 隐私同意、SDK 初始化、预加载、多种广告类型，以及 Provider 切换。")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     }
 
-                    // Section 1: Provider 配置
+                    // Section 1: 隐私同意 (UMP)
                     VStack(alignment: .leading, spacing: 10) {
-                        SectionHeader(title: "1. Provider 配置")
+                        SectionHeader(title: "1. 隐私同意（UMP）")
+
+                        Text("状态: \(consentStatus)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        Button(action: { requestUmp() }) {
+                            Text("请求 UMP 同意")
+                                .fontWeight(.medium)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .background(Color.accentColor)
+                                .foregroundColor(.white)
+                                .cornerRadius(8)
+                        }
+
+                        Text("建议流程：UMP → 初始化 SDK → 加载广告（符合欧盟 GDPR 及三方中介隐私合规要求）。")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                    .background(Color(UIColor.secondarySystemBackground))
+                    .cornerRadius(12)
+
+                    // Section 2: Provider 配置与初始化
+                    VStack(alignment: .leading, spacing: 10) {
+                        SectionHeader(title: "2. Provider 配置与初始化")
 
                         Picker("Provider", selection: $selectedProvider) {
                             Text("AdMob").tag(AdsProviderType.admob)
@@ -78,34 +104,6 @@ public struct ContentView: View {
                                     .cornerRadius(8)
                             }
                         }
-                    }
-                    .padding()
-                    .background(Color(UIColor.secondarySystemBackground))
-                    .cornerRadius(12)
-
-                    // Section 2: 隐私同意 (UMP)
-                    VStack(alignment: .leading, spacing: 10) {
-                        SectionHeader(title: "2. 隐私同意（UMP）")
-
-                        Text("状态: \(consentStatus)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-
-                        Button(action: { requestUmp() }) {
-                            Text("请求 UMP 同意")
-                                .fontWeight(.medium)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 10)
-                                .background(Color.accentColor)
-                                .foregroundColor(.white)
-                                .cornerRadius(8)
-                        }
-
-                        Text(selectedProvider == .admob
-                             ? "建议流程：初始化 → UMP → 加载广告。"
-                             : "建议流程：UMP → 初始化 → 加载广告（MAX 会读取 UMP 写入的 TCF 字符串）。")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
 
                         if selectedProvider == .applovin && !SampleConfig.AppLovinUnit.hasRealUnits() {
                             Text("AppLovin 广告位未配置：请在 SampleConfig.swift 中填写真实广告位 ID。")
@@ -251,7 +249,9 @@ public struct ContentView: View {
         formatter.dateFormat = "HH:mm:ss"
         let timestamp = formatter.string(from: Date())
         eventLogs.insert("[\(timestamp)] \(message)", at: 0)
-        AdsLogger.d("AdsKit-Sample", message)
+        #if DEBUG
+        print("[AdsKit-Sample] D: \(message)")
+        #endif
     }
 
     private func isContainerAd(type: AdsType) -> Bool {
@@ -261,7 +261,16 @@ public struct ContentView: View {
     private func initializeProvider() {
         let provider = selectedProvider
         log("initializeProvider(\(provider.name)) 开始...")
-        AdsManager.initialize(config: SampleConfig.providerConfig(provider: provider)) { success in
+        #if DEBUG
+        let isDebug = true
+        #else
+        let isDebug = false
+        #endif
+        AdsManager.initialize(
+            config: SampleConfig.providerConfig(provider: provider),
+            logEnabled: isDebug,
+            debugEnabled: isDebug
+        ) { success in
             initStatus = success ? "READY (\(provider.name))" : "FAILED"
             log("初始化结果: \(initStatus)")
         }
@@ -282,8 +291,13 @@ public struct ContentView: View {
             return
         }
         log("开始请求 UMP 同意...")
-        UMP.start(from: topVC) { gathered in
-            consentStatus = gathered ? "已同意，可请求广告" : "未同意或受限"
+        #if DEBUG
+        let isDebug = true
+        #else
+        let isDebug = false
+        #endif
+        UMP.start(from: topVC, debugEnabled: isDebug) { gathered in
+            consentStatus = gathered ? "已同意，可初始化广告" : "未同意或受限"
             log("UMP 结果: \(consentStatus)")
         }
     }

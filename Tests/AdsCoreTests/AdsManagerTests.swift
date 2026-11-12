@@ -1,5 +1,5 @@
 import XCTest
-@testable import AdsCore
+@_spi(AdsKitInternal) @testable import AdsCore
 
 @MainActor
 final class AdsManagerTests: XCTestCase {
@@ -9,6 +9,7 @@ final class AdsManagerTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
+        AdsManager.shared.setLogHandler(nil)
         AdsManager.shared.resetForTest()
         AdsProviderAdapterFactory.reset()
 
@@ -189,6 +190,59 @@ final class AdsManagerTests: XCTestCase {
         XCTAssertEqual(AdsManager.shared.getInitState(), .idle)
         XCTAssertNil(AdsManager.shared.getInitializedProviderType())
         XCTAssertEqual(fakeAdmobAdapter.destroyCalls, 1)
+    }
+
+    func testInitializeSetsLogAndDebugSwitches() {
+        let config = AdsProviderConfig(providerType: .admob, apiKey: "app-id")
+        AdsManager.shared.initialize(config: config)
+        XCTAssertFalse(AdsLogger.isEnabled)
+        XCTAssertFalse(AdsDebug.isEnabled)
+
+        AdsManager.shared.destroy()
+        AdsManager.shared.initialize(config: config, logEnabled: true, debugEnabled: true)
+        XCTAssertTrue(AdsLogger.isEnabled)
+        XCTAssertTrue(AdsDebug.isEnabled)
+
+        AdsManager.shared.destroy()
+        AdsManager.shared.initialize(config: config, logEnabled: false, debugEnabled: false)
+        XCTAssertFalse(AdsLogger.isEnabled)
+        XCTAssertFalse(AdsDebug.isEnabled)
+    }
+
+    func testInitializeAndSetLogHandlerInterceptsLogs() {
+        final class LogCollector: @unchecked Sendable {
+            private let lock = NSLock()
+            private var items: [(AdsLogLevel, String)] = []
+            func append(_ level: AdsLogLevel, _ entry: String) {
+                lock.lock()
+                defer { lock.unlock() }
+                items.append((level, entry))
+            }
+            func snapshot() -> [(AdsLogLevel, String)] {
+                lock.lock()
+                defer { lock.unlock() }
+                return items
+            }
+        }
+
+        let collector = LogCollector()
+        let config = AdsProviderConfig(providerType: .admob, apiKey: "app-id")
+        AdsManager.shared.initialize(
+            config: config,
+            logEnabled: false,
+            logHandler: { level, tag, message, _ in
+                collector.append(level, "[\(tag)] \(message)")
+            }
+        )
+
+        let captured = collector.snapshot()
+        XCTAssertTrue(captured.contains { $0.0 == .debug && $0.1.contains("initialize start") })
+        XCTAssertTrue(captured.contains { $0.0 == .debug && $0.1.contains("initialize complete") })
+
+        let countBeforeClear = captured.count
+        AdsManager.shared.setLogHandler(nil)
+        AdsManager.shared.destroy()
+        XCTAssertEqual(collector.snapshot().count, countBeforeClear)
     }
 }
 

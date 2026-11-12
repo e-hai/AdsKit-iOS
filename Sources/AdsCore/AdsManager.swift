@@ -63,12 +63,27 @@ public final class AdsManager {
         return request.preloadTtlMs ?? Self.DEFAULT_PRELOAD_TTL_MS
     }
 
+    // MARK: - Log Interception
+
+    public func setLogHandler(_ handler: AdsLogHandler?) {
+        AdsLogger.logHandler = handler
+    }
+
     // MARK: - Initialize
 
     public func initialize(
         config: AdsProviderConfig,
+        logEnabled: Bool = false,
+        debugEnabled: Bool = false,
+        logHandler: AdsLogHandler? = nil,
         onResult: ((Bool) -> Void)? = nil
     ) {
+        AdsLogger.isEnabled = logEnabled
+        AdsDebug.isEnabled = debugEnabled
+        if let logHandler = logHandler {
+            AdsLogger.logHandler = logHandler
+        }
+
         let providerType = config.providerType
         if testAdapterFactory == nil && !AdsProviderAdapterFactory.isAvailable(providerType) {
             AdsLogger.e(
@@ -285,8 +300,24 @@ public final class AdsManager {
 
 // MARK: - Global Static Convenience APIs
 public extension AdsManager {
-    static func initialize(config: AdsProviderConfig, onResult: ((Bool) -> Void)? = nil) {
-        shared.initialize(config: config, onResult: onResult)
+    static func setLogHandler(_ handler: AdsLogHandler?) {
+        shared.setLogHandler(handler)
+    }
+
+    static func initialize(
+        config: AdsProviderConfig,
+        logEnabled: Bool = false,
+        debugEnabled: Bool = false,
+        logHandler: AdsLogHandler? = nil,
+        onResult: ((Bool) -> Void)? = nil
+    ) {
+        shared.initialize(
+            config: config,
+            logEnabled: logEnabled,
+            debugEnabled: debugEnabled,
+            logHandler: logHandler,
+            onResult: onResult
+        )
     }
 
     static func preloadAd(request: AdsRequest) {
